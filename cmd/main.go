@@ -17,7 +17,7 @@ import (
 	_ "filmhub/docs" // swagger docs
 
 	"github.com/gin-gonic/gin"
-	"github.com/jackc/pgx/v5"
+	pgx "github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 	swaggerFiles "github.com/swaggo/files"
 	ginSwagger "github.com/swaggo/gin-swagger"

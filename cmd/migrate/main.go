@@ -5,7 +5,7 @@ import (
 	"filmhub/pkg/database"
 	"log"
 
-	"github.com/jackc/pgx/v5"
+	pgx "github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
 )
 

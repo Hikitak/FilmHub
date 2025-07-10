@@ -27,12 +27,12 @@ tasks:
   lint:
     desc: Запуск линтера
     cmds:
-      - docker run --rm -v ${PWD}:/app -w /app golangci/golangci-lint:latest golangci-lint run
+      - docker run --rm -v ${PWD}:/app -w /app golangci/golangci-lint:v1.57.2-alpine golangci-lint run -c .golangci.yaml
 
   lint:fix:
     desc: Исправить ошибки линтера
     cmds:
-      - docker run --rm -v ${PWD}:/app -w /app golangci/golangci-lint:latest golangci-lint run --fix
+      - docker run --rm -v ${PWD}:/app -w /app golangci/golangci-lint:v1.57.2-alpine golangci-lint run --fix -c .golangci.yaml
   fmt:
     desc: Форматирование кода
     cmds:
