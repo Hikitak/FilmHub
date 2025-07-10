@@ -28,14 +28,44 @@ tasks:
     desc: Сборка Docker-образа
     cmds:
       - docker build -t filmhub .
+  docker:run:
+    desc: Запуск Docker-контейнера
+    cmds:
+      - docker run -p 8080:8080 --env-file .env filmhub
+  docker:run:detached:
+    desc: Запуск Docker-контейнера в фоне
+    cmds:
+      - docker run -d -p 8080:8080 --env-file .env --name filmhub-app filmhub
+  docker:stop:
+    desc: Остановка Docker-контейнера
+    cmds:
+      - docker stop filmhub-app || true
+      - docker rm filmhub-app || true
+  docker:logs:
+    desc: Просмотр логов Docker-контейнера
+    cmds:
+      - docker logs -f filmhub-app
+  docker:shell:
+    desc: Вход в Docker-контейнер
+    cmds:
+      - docker exec -it filmhub-app sh
   docker:up:
     desc: Запуск docker-compose
     cmds:
       - docker compose -f docker-composer.yml up --build
+  docker:up:detached:
+    desc: Запуск docker-compose в фоне
+    cmds:
+      - docker compose -f docker-composer.yml up -d --build
   docker:down:
     desc: Остановка docker-compose
     cmds:
       - docker compose -f docker-composer.yml down
+  docker:clean:
+    desc: Очистка Docker-образов и контейнеров
+    cmds:
+      - docker system prune -f
+      - docker image prune -f
   migrate:
     desc: Запуск миграций
     cmds:
