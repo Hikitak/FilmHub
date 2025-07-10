@@ -14,10 +14,36 @@ import (
 	"syscall"
 	"time"
 
+	_ "filmhub/docs" // swagger docs
+
 	"github.com/gin-gonic/gin"
 	"github.com/jackc/pgx/v5"
 	"github.com/joho/godotenv"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+// @title FilmHub API
+// @version 1.0
+// @description API для управления фильмами и пользователями
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url http://www.swagger.io/support
+// @contact.email support@swagger.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /
+
+// @securityDefinitions.apikey BearerAuth
+// @in header
+// @name Authorization
+// @description Введите "Bearer" + пробел + JWT токен
+
+// @schemes http https
 
 func main() {
 	// Load environment variables
@@ -78,6 +104,9 @@ func main() {
 
 	// Setup router
 	router := gin.Default()
+
+	// Swagger documentation
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Public routes
 	router.POST("/register", authHandler.Register)

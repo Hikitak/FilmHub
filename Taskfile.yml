@@ -1,35 +1,49 @@
 version: '3'
+
 tasks:
+  # Задача по умолчанию - запускается при вводе просто 'task'
+  default:
+    desc: Запуск FilmHub (полный стек)
+    cmds:
+      - task dev:start
+
+  # Основные команды разработки
   build:
     desc: Сборка бинарника Go
     cmds:
-      - go build -o filmhub ./cmd/main.go
+      - docker run --rm -v ${PWD}:/app -w /app golang:1.24.1-alpine go build -o filmhub ./cmd/main.go
   run:
-    desc: Запуск приложения локально
+    desc: Запуск приложения локально (требует Postgres)
     cmds:
-      - go run ./cmd/main.go
+      - docker run --rm -v ${PWD}:/app -w /app --env-file .env --network host golang:1.24.1-alpine go run ./cmd/main.go
   vendor:
     desc: Обновить vendor
     cmds:
-      - go mod vendor
+      - docker run --rm -v ${PWD}:/app -w /app golang:1.24.1-alpine go mod vendor
   tidy:
     desc: Обновить зависимости
     cmds:
-      - go mod tidy
+      - docker run --rm -v ${PWD}:/app -w /app golang:1.24.1-alpine go mod tidy
   lint:
     desc: Запуск линтера
     cmds:
-      - golangci-lint run
+      - docker run --rm -v ${PWD}:/app -w /app golangci/golangci-lint:latest golangci-lint run
   lint:fix:
     desc: Исправить ошибки линтера
     cmds:
-      - golangci-lint run --fix
+      - docker run --rm -v ${PWD}:/app -w /app golangci/golangci-lint:latest golangci-lint run --fix
+  fmt:
+    desc: Форматирование кода
+    cmds:
+      - docker run --rm -v ${PWD}:/app -w /app golang:1.24.1-alpine go fmt ./...
+
+  # Docker команды
   docker:build:
     desc: Сборка Docker-образа
     cmds:
       - docker build -t filmhub .
   docker:run:
-    desc: Запуск Docker-контейнера
+    desc: Запуск Docker-контейнера (требует внешнюю БД)
     cmds:
       - docker run -p 8080:8080 --env-file .env filmhub
   docker:run:detached:
@@ -49,16 +63,18 @@ tasks:
     desc: Вход в Docker-контейнер
     cmds:
       - docker exec -it filmhub-app sh
+
+  # Docker Compose команды (полный стек)
   docker:up:
-    desc: Запуск docker-compose
+    desc: Запуск полного стека (приложение + Postgres)
     cmds:
       - docker compose -f docker-composer.yml up --build
   docker:up:detached:
-    desc: Запуск docker-compose в фоне
+    desc: Запуск полного стека в фоне
     cmds:
       - docker compose -f docker-composer.yml up -d --build
   docker:down:
-    desc: Остановка docker-compose
+    desc: Остановка полного стека
     cmds:
       - docker compose -f docker-composer.yml down
   docker:clean:
@@ -66,7 +82,52 @@ tasks:
     cmds:
       - docker system prune -f
       - docker image prune -f
+
+  # Миграции
   migrate:
-    desc: Запуск миграций
+    desc: Запуск миграций (требует запущенную БД)
     cmds:
-      - go run ./cmd/migrate/main.go 
+      - docker run --rm -v ${PWD}:/app -w /app --env-file .env --network host golang:1.24.1-alpine go run ./cmd/migrate/main.go
+
+  # Swagger документация
+  swagger:generate:
+    desc: Генерация Swagger документации
+    cmds:
+      - docker run --rm -v ${PWD}:/app -w /app golang:1.24.1-alpine sh -c "go install github.com/swaggo/swag/cmd/swag@latest && swag init -g cmd/main.go"
+
+  swagger:generate:local:
+    desc: Генерация Swagger документации локально
+    cmds:
+      - go run github.com/swaggo/swag/cmd/swag@latest init -g cmd/main.go
+
+  # Удобные команды для разработки
+  dev:setup:
+    desc: Полная настройка проекта (сборка + запуск стека)
+    cmds:
+      - task docker:build
+      - task docker:up:detached
+      - echo "Waiting for database to be ready..."
+      - sleep 10
+      - task migrate
+
+  dev:start:
+    desc: Быстрый старт для разработки
+    cmds:
+      - task docker:up:detached
+      - echo "FilmHub запущен на http://localhost:8080"
+      - echo "Swagger UI доступен на http://localhost:8080/swagger/index.html"
+
+  dev:stop:
+    desc: Остановка всех сервисов
+    cmds:
+      - task docker:down
+      - task docker:stop
+      - echo "Все сервисы остановлены"
+
+  test:api:
+    desc: Тестирование API
+    cmds:
+      - echo "Тестирование регистрации..."
+      - "curl -X POST http://localhost:8080/register -H 'Content-Type: application/json' -d '{\"username\":\"test\",\"email\":\"test@test.com\",\"password\":\"password123\"}' || echo 'API недоступен'"
+      - echo "Тестирование поиска фильмов..."
+      - "curl http://localhost:8080/films || echo 'API недоступен'" 
