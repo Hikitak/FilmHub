@@ -1,0 +1,30 @@
+version: '3'
+tasks:
+  build:
+    desc: Сборка бинарника Go
+    cmds:
+      - go build -o filmhub ./cmd/main.go
+  run:
+    desc: Запуск приложения локально
+    cmds:
+      - go run ./cmd/main.go
+  vendor:
+    desc: Обновить vendor
+    cmds:
+      - go mod vendor
+  tidy:
+    desc: Обновить зависимости
+    cmds:
+      - go mod tidy
+  docker:build:
+    desc: Сборка Docker-образа
+    cmds:
+      - docker build -t filmhub .
+  docker:up:
+    desc: Запуск docker-compose
+    cmds:
+      - docker compose -f docker-composer.yml up --build
+  docker:down:
+    desc: Остановка docker-compose
+    cmds:
+      - docker compose -f docker-composer.yml down 
