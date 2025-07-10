@@ -45,6 +45,14 @@ func main() {
 		}
 		if conn != nil {
 			defer conn.Close(context.Background())
+
+			// Run migrations if database is available
+			log.Println("Running database migrations...")
+			if err := runMigrations(conn); err != nil {
+				log.Printf("Warning: Failed to run migrations: %v", err)
+			} else {
+				log.Println("Migrations completed successfully")
+			}
 		}
 	}
 
@@ -110,4 +118,51 @@ func main() {
 	}
 
 	log.Println("Server exited")
+}
+
+func runMigrations(conn *pgx.Conn) error {
+	ctx := context.Background()
+
+	// Создание таблицы пользователей
+	_, err := conn.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS users (
+			id SERIAL PRIMARY KEY,
+			username VARCHAR(255) NOT NULL UNIQUE,
+			email VARCHAR(255) NOT NULL UNIQUE,
+			password VARCHAR(255) NOT NULL,
+			role VARCHAR(50) NOT NULL DEFAULT 'user',
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	// Создание таблицы фильмов
+	_, err = conn.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS films (
+			id SERIAL PRIMARY KEY,
+			title VARCHAR(255) NOT NULL,
+			description TEXT,
+			release_date DATE,
+			rating DECIMAL(3,2) DEFAULT 0.0,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	if err != nil {
+		return err
+	}
+
+	// Создание таблицы отзывов
+	_, err = conn.Exec(ctx, `
+		CREATE TABLE IF NOT EXISTS reviews (
+			id SERIAL PRIMARY KEY,
+			film_id INTEGER REFERENCES films(id) ON DELETE CASCADE,
+			user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+			rating INTEGER CHECK (rating >= 1 AND rating <= 10),
+			comment TEXT,
+			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+		)
+	`)
+	return err
 }

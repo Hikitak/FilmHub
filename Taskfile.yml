@@ -16,6 +16,14 @@ tasks:
     desc: Обновить зависимости
     cmds:
       - go mod tidy
+  lint:
+    desc: Запуск линтера
+    cmds:
+      - golangci-lint run
+  lint:fix:
+    desc: Исправить ошибки линтера
+    cmds:
+      - golangci-lint run --fix
   docker:build:
     desc: Сборка Docker-образа
     cmds:
@@ -27,4 +35,8 @@ tasks:
   docker:down:
     desc: Остановка docker-compose
     cmds:
-      - docker compose -f docker-composer.yml down 
+      - docker compose -f docker-composer.yml down
+  migrate:
+    desc: Запуск миграций
+    cmds:
+      - go run ./cmd/migrate/main.go 
