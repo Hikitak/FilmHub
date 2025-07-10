@@ -63,7 +63,7 @@ func (h *FilmHandler) GetFilm(c *gin.Context) {
 		return
 	}
 
-	film, err := h.service.GetFilmByID(c.Request.Context(), id)
+	film, err := h.service.GetFilm(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Film not found"})
 		return
