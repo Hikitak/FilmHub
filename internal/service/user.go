@@ -5,7 +5,7 @@ import (
 	"errors"
 	"filmhub/internal/models"
 	"filmhub/internal/repository"
-	"filmhub/pkg/jwt"
+	"filmhub/pkg/login"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -36,5 +36,5 @@ func (s *AuthService) Login(ctx context.Context, email, password string) (string
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(password)); err != nil {
 		return "", errors.New("invalid credentials")
 	}
-	return jwt.GenerateToken(user.ID, string(user.Role))
+	return login.GenerateToken(user.ID, string(user.Role))
 }

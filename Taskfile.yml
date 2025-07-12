@@ -1,40 +1,40 @@
 version: '3'
 
 tasks:
-  # Задача по умолчанию - запускается при вводе просто 'task'
   default:
     desc: Запуск FilmHub (полный стек)
     cmds:
-      - task dev:start
+      - task: dev:start
 
   # Основные команды разработки
   build:
     desc: Сборка бинарника Go
+    echo: "- Build"
     cmds:
       - docker run --rm -v ${PWD}:/app -w /app golang:1.24.1-alpine go build -o filmhub ./cmd/main.go
   run:
     desc: Запуск приложения локально (требует Postgres)
+    echo: "- Run"
     cmds:
       - docker run --rm -v ${PWD}:/app -w /app --env-file .env --network host golang:1.24.1-alpine go run ./cmd/main.go
   vendor:
     desc: Обновить vendor
+    echo: "- Vendor"
     cmds:
       - docker run --rm -v ${PWD}:/app -w /app golang:1.24.1-alpine go mod vendor
   tidy:
     desc: Обновить зависимости
+    echo: "- Tidy"
     cmds:
       - docker run --rm -v ${PWD}:/app -w /app golang:1.24.1-alpine go mod tidy
   lint:
     desc: Запуск линтера
-    cmds:
-      - docker run --rm -v ${PWD}:/app -w /app golangci/golangci-lint:v1.57.2-alpine golangci-lint run -c .golangci.yaml
-
-  lint:fix:
-    desc: Исправить ошибки линтера
+    echo: "- Lint"
     cmds:
       - docker run --rm -v ${PWD}:/app -w /app golangci/golangci-lint:v1.57.2-alpine golangci-lint run --fix -c .golangci.yaml
   fmt:
     desc: Форматирование кода
+    echo: "- Format"
     cmds:
       - docker run --rm -v ${PWD}:/app -w /app golang:1.24.1-alpine go fmt ./...
 
@@ -84,51 +84,21 @@ tasks:
       - docker system prune -f
       - docker image prune -f
 
-  # Миграции
-  migrate:
-    desc: Запуск миграций (требует запущенную БД)
-    cmds:
-      - docker run --rm -v ${PWD}:/app -w /app --env-file .env --network host golang:1.24.1-alpine go run ./cmd/migrate/main.go
-
-  # Swagger документация
-  swagger:generate:
-    desc: Генерация Swagger документации
-    cmds:
-      - docker run --rm -v ${PWD}:/app -w /app golang:1.24.1-alpine sh -c "go install github.com/swaggo/swag/cmd/swag@latest && swag init -g cmd/main.go"
-
-  swagger:generate:local:
-    desc: Генерация Swagger документации локально
-    cmds:
-      - go run github.com/swaggo/swag/cmd/swag@latest init -g cmd/main.go
-
   # Удобные команды для разработки
   dev:setup:
     desc: Полная настройка проекта (сборка + запуск стека)
     cmds:
       - task docker:build
       - task docker:up:detached
-      - echo "Waiting for database to be ready..."
-      - sleep 10
-      - task migrate
-
   dev:start:
     desc: Быстрый старт для разработки
     cmds:
       - task docker:up:detached
       - echo "FilmHub запущен на http://localhost:8080"
       - echo "Swagger UI доступен на http://localhost:8080/swagger/index.html"
-
   dev:stop:
     desc: Остановка всех сервисов
     cmds:
       - task docker:down
       - task docker:stop
       - echo "Все сервисы остановлены"
-
-  test:api:
-    desc: Тестирование API
-    cmds:
-      - echo "Тестирование регистрации..."
-      - "curl -X POST http://localhost:8080/register -H 'Content-Type: application/json' -d '{\"username\":\"test\",\"email\":\"test@test.com\",\"password\":\"password123\"}' || echo 'API недоступен'"
-      - echo "Тестирование поиска фильмов..."
-      - "curl http://localhost:8080/films || echo 'API недоступен'" 
