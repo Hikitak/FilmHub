@@ -30,6 +30,11 @@ func NewFilmHandler(service *service.FilmService) *FilmHandler {
 // @Failure 500 {object} map[string]interface{} "Внутренняя ошибка сервера"
 // @Router /films [post]
 func (h *FilmHandler) CreateFilm(c *gin.Context) {
+	roleVal, _ := c.Get("role")
+	if roleStr, ok := roleVal.(string); !ok || (roleStr != "admin" && roleStr != "moderator") {
+		c.JSON(http.StatusForbidden, gin.H{"error": "insufficient permissions"})
+		return
+	}
 	var req models.FilmRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})

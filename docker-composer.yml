@@ -36,5 +36,17 @@ services:
       timeout: 10s
       retries: 3
 
+  frontend:
+    build:
+      context: ./frontend
+    container_name: filmhub-frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - default
+    command: ["npm","run","dev","--","--host"]
+
 volumes:
   pgdata:
