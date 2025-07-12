@@ -1,0 +1,41 @@
+version: "3.8"
+
+services:
+  sentry:
+    image: getsentry/sentry:24.6.1
+    container_name: sentry
+    ports:
+      - "9000:9000"
+    environment:
+      SENTRY_SECRET_KEY: "changemeplease"
+      SENTRY_DB_NAME: "sentry"
+      SENTRY_DB_USER: "sentry"
+      SENTRY_DB_PASSWORD: "sentry"
+      SENTRY_POSTGRES_HOST: "sentry-postgres"
+      SENTRY_REDIS_HOST: "sentry-redis"
+    depends_on:
+      - sentry-postgres
+      - sentry-redis
+    restart: unless-stopped
+
+  sentry-postgres:
+    image: postgres:15
+    container_name: sentry-postgres
+    environment:
+      POSTGRES_USER: "sentry"
+      POSTGRES_PASSWORD: "sentry"
+      POSTGRES_DB: "sentry"
+    volumes:
+      - sentry-postgres-data:/var/lib/postgresql/data
+    restart: unless-stopped
+
+  sentry-redis:
+    image: redis:7-alpine
+    container_name: sentry-redis
+    volumes:
+      - sentry-redis-data:/data
+    restart: unless-stopped
+
+volumes:
+  sentry-postgres-data:
+  sentry-redis-data: 

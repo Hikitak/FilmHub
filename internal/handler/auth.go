@@ -31,6 +31,7 @@ type loginResponse struct {
 	Token string `json:"token" example:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VyX2lkIjoxLCJyb2xlIjoidXNlciIsImV4cCI6MTYzNTQ5NjAwMH0.example" description:"JWT токен для авторизации"`
 }
 
+// Register
 // @Summary Регистрация пользователя
 // @Description Регистрирует нового пользователя в системе
 // @Tags auth

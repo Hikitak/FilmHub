@@ -2,63 +2,50 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"filmhub/internal/handler"
 	"filmhub/internal/repository"
 	"filmhub/internal/service"
 	"filmhub/pkg/database"
-	"filmhub/pkg/jwt"
-	"log"
+	jwt "filmhub/pkg/login"
 	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
-	_ "filmhub/docs" // swagger docs
+	_ "github.com/jackc/pgx/v5/stdlib"
+
+	"filmhub/pkg/logger"
 
 	"github.com/gin-gonic/gin"
 	pgx "github.com/jackc/pgx/v5"
-	"github.com/joho/godotenv"
-	swaggerFiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
-// @title FilmHub API
-// @version 1.0
-// @description API для управления фильмами и пользователями
-// @termsOfService http://swagger.io/terms/
-
-// @contact.name API Support
-// @contact.url http://www.swagger.io/support
-// @contact.email support@swagger.io
-
-// @license.name Apache 2.0
-// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
-
-// @host localhost:8080
-// @BasePath /
-
-// @securityDefinitions.apikey BearerAuth
-// @in header
-// @name Authorization
-// @description Введите "Bearer" + пробел + JWT токен
-
-// @schemes http https
-
 func main() {
-	// Load environment variables
-	_ = godotenv.Load()
+	// Initialize logger
+	logger.Init()
+	defer logger.Sync()
 
 	// Initialize database
 	pool, err := database.NewPostgresPool()
 	if err != nil {
-		log.Printf("Warning: Failed to connect to database: %v", err)
-		log.Println("Starting server without database connection...")
-		// Можно запустить сервер без БД для тестирования
-		// return
+		logger.Log.Warnf("Failed to connect to database: %v", err)
+		logger.Log.Warn("Starting server without database connection...")
+
 	}
 	if pool != nil {
 		defer pool.Close()
+		// apply migrations
+		sqlDB, err := sql.Open("pgx", pool.Config().ConnString())
+		if err == nil {
+			defer sqlDB.Close()
+			if err := database.ApplyMigrations(sqlDB, logger.Log); err != nil {
+				logger.Log.Warnf("migration error: %v", err)
+			}
+		} else {
+			logger.Log.Warnf("sql open error: %v", err)
+		}
 	}
 
 	// Get connection for repositories
@@ -66,19 +53,11 @@ func main() {
 	if pool != nil {
 		conn, err = pgx.Connect(context.Background(), pool.Config().ConnString())
 		if err != nil {
-			log.Printf("Warning: Failed to get database connection: %v", err)
-			log.Println("Starting server without database connection...")
+			logger.Log.Warnf("Failed to get database connection: %v", err)
+			logger.Log.Warn("Starting server without database connection...")
 		}
 		if conn != nil {
 			defer conn.Close(context.Background())
-
-			// Run migrations if database is available
-			log.Println("Running database migrations...")
-			if err := runMigrations(conn); err != nil {
-				log.Printf("Warning: Failed to run migrations: %v", err)
-			} else {
-				log.Println("Migrations completed successfully")
-			}
 		}
 	}
 
@@ -89,7 +68,7 @@ func main() {
 		filmRepo = repository.NewFilmRepository(conn)
 		userRepo = repository.NewUserRepository(conn)
 	} else {
-		log.Println("Using mock repositories (no database connection)")
+		logger.Log.Warn("Using mock repositories (no database connection)")
 		// Здесь можно добавить mock репозитории
 		return
 	}
@@ -104,9 +83,6 @@ func main() {
 
 	// Setup router
 	router := gin.Default()
-
-	// Swagger documentation
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Public routes
 	router.POST("/register", authHandler.Register)
@@ -123,13 +99,16 @@ func main() {
 
 	// Start server
 	srv := &http.Server{
-		Addr:    ":8080",
-		Handler: router,
+		Addr:           ":8080",
+		Handler:        router,
+		ReadTimeout:    10 * time.Second,
+		WriteTimeout:   10 * time.Second,
+		MaxHeaderBytes: 1 << 20,
 	}
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Server error: %v", err)
+			logger.Log.Fatalf("Server error: %v", err)
 		}
 	}()
 
@@ -137,61 +116,14 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	log.Println("Shutting down server...")
+	logger.Log.Info("Shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+		logger.Log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
-	log.Println("Server exited")
-}
-
-func runMigrations(conn *pgx.Conn) error {
-	ctx := context.Background()
-
-	// Создание таблицы пользователей
-	_, err := conn.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS users (
-			id SERIAL PRIMARY KEY,
-			username VARCHAR(255) NOT NULL UNIQUE,
-			email VARCHAR(255) NOT NULL UNIQUE,
-			password VARCHAR(255) NOT NULL,
-			role VARCHAR(50) NOT NULL DEFAULT 'user',
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-	if err != nil {
-		return err
-	}
-
-	// Создание таблицы фильмов
-	_, err = conn.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS films (
-			id SERIAL PRIMARY KEY,
-			title VARCHAR(255) NOT NULL,
-			description TEXT,
-			release_date DATE,
-			rating DECIMAL(3,2) DEFAULT 0.0,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-	if err != nil {
-		return err
-	}
-
-	// Создание таблицы отзывов
-	_, err = conn.Exec(ctx, `
-		CREATE TABLE IF NOT EXISTS reviews (
-			id SERIAL PRIMARY KEY,
-			film_id INTEGER REFERENCES films(id) ON DELETE CASCADE,
-			user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
-			rating INTEGER CHECK (rating >= 1 AND rating <= 10),
-			comment TEXT,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-		)
-	`)
-	return err
+	logger.Log.Info("Server exited")
 }
