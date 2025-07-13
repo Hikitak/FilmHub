@@ -1,7 +1,6 @@
 package logger
 
 import (
-	"os"
 	"time"
 
 	zapsentry "github.com/TheZeroSlave/zapsentry"
@@ -10,18 +9,12 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-var Log *zap.SugaredLogger
-
-// Init инициализирует глобальный zap логгер.
-// В режиме APP_ENV=prod используется Production конфигурация,
-// иначе Development (более человекочитаемая).
-func Init() {
-	env := os.Getenv("APP_ENV")
-	dsn := os.Getenv("SENTRY_DSN")
-
+// New создает zap логгер, настраивая уровень и интеграцию с Sentry в зависимости
+// от окружения. Возвращает *zap.SugaredLogger.
+func New(appEnv, sentryDSN string) *zap.SugaredLogger {
 	var l *zap.Logger
 	var err error
-	if env == "prod" {
+	if appEnv == "prod" {
 		l, err = zap.NewProduction()
 	} else {
 		l, err = zap.NewDevelopment()
@@ -30,11 +23,11 @@ func Init() {
 		panic(err)
 	}
 
-	// Инициализация Sentry (если задан DSN)
-	if dsn != "" {
+	// Интеграция Sentry (опционально)
+	if sentryDSN != "" {
 		if err := sentry.Init(sentry.ClientOptions{
-			Dsn:         dsn,
-			Environment: env,
+			Dsn:         sentryDSN,
+			Environment: appEnv,
 		}); err != nil {
 			l.Warn("Sentry initialization failed", zap.Error(err))
 		} else {
@@ -51,13 +44,14 @@ func Init() {
 			}
 		}
 	}
-	Log = l.Sugar()
+
+	return l.Sugar()
 }
 
 // Sync очищает буферы zap и отправляет накопленные события в Sentry.
-func Sync() {
-	if Log != nil {
-		_ = Log.Sync()
+func Sync(l *zap.SugaredLogger) {
+	if l != nil {
+		_ = l.Sync()
 	}
 	sentry.Flush(2 * time.Second)
 }

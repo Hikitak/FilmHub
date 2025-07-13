@@ -1,12 +1,23 @@
 package login
 
 import (
+	"os"
 	"time"
 
 	jwt "github.com/golang-jwt/jwt/v5"
 )
 
-var jwtKey = []byte("supersecretkey")
+// jwtKey holds the HMAC secret used for signing tokens. It is loaded from the
+// JWT_SECRET environment variable. If the variable is not set a hard-coded
+// fallback is used, but this should ONLY be relied on during local
+// development. In production you **must** provide JWT_SECRET.
+var jwtKey = []byte(func() string {
+	if v := os.Getenv("JWT_SECRET"); v != "" {
+		return v
+	}
+	// TODO: replace with panic or fatal log if running in production without secret
+	return "supersecretkey"
+}())
 
 type Claims struct {
 	UserID int    `json:"user_id"`

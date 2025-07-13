@@ -3,11 +3,6 @@ package main
 import (
 	"context"
 	"database/sql"
-	"filmhub/internal/handler"
-	"filmhub/internal/repository"
-	"filmhub/internal/service"
-	"filmhub/pkg/database"
-	jwt "filmhub/pkg/login"
 	"net/http"
 	"os"
 	"os/signal"
@@ -16,23 +11,34 @@ import (
 
 	_ "github.com/jackc/pgx/v5/stdlib"
 
-	"filmhub/pkg/logger"
-
 	"github.com/gin-gonic/gin"
-	pgx "github.com/jackc/pgx/v5"
+
+	"filmhub/pkg/config"
+	"filmhub/pkg/database"
+	"filmhub/pkg/logger"
+	jwt "filmhub/pkg/login"
+
+	"filmhub/internal/handler"
+	"filmhub/internal/repository"
+	"filmhub/internal/service"
 )
 
 func main() {
-	// Initialize logger
-	logger.Init()
-	defer logger.Sync()
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		panic(err)
+	}
+
+	// Initialize logger (dependency-injected)
+	log := logger.New(cfg.AppEnv, cfg.SentryDSN)
+	defer logger.Sync(log)
 
 	// Initialize database
 	pool, err := database.NewPostgresPool()
 	if err != nil {
-		logger.Log.Warnf("Failed to connect to database: %v", err)
-		logger.Log.Warn("Starting server without database connection...")
-
+		log.Warnf("Failed to connect to database: %v", err)
+		log.Warn("Starting server without database connection...")
 	}
 	if pool != nil {
 		defer pool.Close()
@@ -40,49 +46,43 @@ func main() {
 		sqlDB, err := sql.Open("pgx", pool.Config().ConnString())
 		if err == nil {
 			defer sqlDB.Close()
-			if err := database.ApplyMigrations(sqlDB, logger.Log); err != nil {
-				logger.Log.Warnf("migration error: %v", err)
+			if err := database.ApplyMigrations(sqlDB, log); err != nil {
+				log.Warnf("migration error: %v", err)
 			}
 		} else {
-			logger.Log.Warnf("sql open error: %v", err)
+			log.Warnf("sql open error: %v", err)
 		}
 	}
 
-	// Get connection for repositories
-	var conn *pgx.Conn
-	if pool != nil {
-		conn, err = pgx.Connect(context.Background(), pool.Config().ConnString())
-		if err != nil {
-			logger.Log.Warnf("Failed to get database connection: %v", err)
-			logger.Log.Warn("Starting server without database connection...")
-		}
-		if conn != nil {
-			defer conn.Close(context.Background())
-		}
-	}
-
-	// Initialize repositories
-	var filmRepo *repository.FilmRepository
-	var userRepo repository.UserRepository
-	if conn != nil {
-		filmRepo = repository.NewFilmRepository(conn)
-		userRepo = repository.NewUserRepository(conn)
-	} else {
-		logger.Log.Warn("Using mock repositories (no database connection)")
-		// Здесь можно добавить mock репозитории
+	// Ensure we have a working connection pool before proceeding.
+	if pool == nil {
+		log.Warn("Using mock repositories (no database connection)")
+		// TODO: inject mock repositories for offline mode instead of exiting.
 		return
 	}
+
+	// Initialize repositories with pooled connection
+	filmRepo := repository.NewFilmRepository(pool)
+	userRepo := repository.NewUserRepository(pool)
 
 	// Initialize services
 	filmService := service.NewFilmService(filmRepo)
 	authService := service.NewAuthService(userRepo)
 
+	reviewRepo := repository.NewReviewRepository(pool)
+	reviewService := service.NewReviewService(reviewRepo)
+
 	// Initialize handlers
 	filmHandler := handler.NewFilmHandler(filmService)
 	authHandler := handler.NewAuthHandler(authService)
+	reviewHandler := handler.NewReviewHandler(reviewService)
 
-	// Setup router
-	router := gin.Default()
+	// Setup router (Gin in release mode for prod.)
+	if cfg.AppEnv == "prod" {
+		gin.SetMode(gin.ReleaseMode)
+	}
+	router := gin.New()
+	router.Use(gin.Recovery())
 
 	// Public routes
 	router.POST("/register", authHandler.Register)
@@ -95,6 +95,8 @@ func main() {
 	auth.Use(jwt.AuthMiddleware())
 	{
 		auth.POST("/films", filmHandler.CreateFilm)
+		auth.POST("/films/:id/reviews", reviewHandler.CreateReview)
+		auth.GET("/films/:id/reviews", reviewHandler.ListReviews)
 	}
 
 	// Start server
@@ -108,7 +110,7 @@ func main() {
 
 	go func() {
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			logger.Log.Fatalf("Server error: %v", err)
+			log.Fatalf("Server error: %v", err)
 		}
 	}()
 
@@ -116,14 +118,14 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	logger.Log.Info("Shutting down server...")
+	log.Info("Shutting down server...")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
 	if err := srv.Shutdown(ctx); err != nil {
-		logger.Log.Fatalf("Server forced to shutdown: %v", err)
+		log.Fatalf("Server forced to shutdown: %v", err)
 	}
 
-	logger.Log.Info("Server exited")
+	log.Info("Server exited")
 }

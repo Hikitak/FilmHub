@@ -4,14 +4,14 @@ import (
 	"context"
 	"filmhub/internal/models"
 
-	pgx "github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 type FilmRepository struct {
-	db *pgx.Conn
+	db *pgxpool.Pool
 }
 
-func NewFilmRepository(db *pgx.Conn) *FilmRepository {
+func NewFilmRepository(db *pgxpool.Pool) *FilmRepository {
 	return &FilmRepository{db: db}
 }
 
