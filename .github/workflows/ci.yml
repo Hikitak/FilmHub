@@ -28,4 +28,4 @@ jobs:
       - name: Test
         run: go test -v ./...
       - name: Build
-        run: go build ./cmd 
+        run: go build -o filmhub ./cmd 
