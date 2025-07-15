@@ -3,6 +3,7 @@ package login
 import "testing"
 
 func TestGenerateAndParseToken(t *testing.T) {
+    Init("testsecret")
     tokenStr, err := GenerateToken(42, "admin")
     if err != nil {
         t.Fatalf("generate token: %v", err)

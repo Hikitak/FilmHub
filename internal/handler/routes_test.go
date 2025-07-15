@@ -22,6 +22,7 @@ func (stubFilmRepo) SearchFilms(_ context.Context, _ string) ([]models.Film, err
 
 func TestAuthAndCreateFilmRoute(t *testing.T) {
     gin.SetMode(gin.TestMode)
+    jwtpkg.Init("testsecret")
     // Prepare token
     token, _ := jwtpkg.GenerateToken(1, "admin")
 

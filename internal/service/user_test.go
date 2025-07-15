@@ -5,6 +5,7 @@ import (
     "testing"
 
     "filmhub/internal/models"
+    "filmhub/pkg/login"
 )
 
 // stubUserRepo is an in-memory implementation of repository.UserRepository
@@ -41,6 +42,7 @@ func TestAuthService_Register_And_Login(t *testing.T) {
         Password: "s3cr3tPwd",
     }
 
+    login.Init("testsecret")
     // Register should hash password and store the user.
     if err := svc.Register(ctx, user); err != nil {
         t.Fatalf("register failed: %v", err)

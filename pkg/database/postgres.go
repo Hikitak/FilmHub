@@ -3,20 +3,20 @@ package database
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
+	"filmhub/pkg/config"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func NewPostgresPool() (*pgxpool.Pool, error) {
+func NewPostgresPool(cfg *config.Config) (*pgxpool.Pool, error) {
 	connStr := fmt.Sprintf(
 		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASSWORD"),
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_NAME"),
+		cfg.DBUser,
+		cfg.DBPassword,
+		cfg.DBHost,
+		cfg.DBPort,
+		cfg.DBName,
 	)
 
 	config, err := pgxpool.ParseConfig(connStr)

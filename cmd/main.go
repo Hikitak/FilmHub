@@ -34,8 +34,11 @@ func main() {
 	log := logger.New(cfg.AppEnv, cfg.SentryDSN)
 	defer logger.Sync(log)
 
+	// Init JWT secret
+	jwt.Init(cfg.JWTSecret)
+
 	// Initialize database
-	pool, err := database.NewPostgresPool()
+	pool, err := database.NewPostgresPool(cfg)
 	if err != nil {
 		log.Warnf("Failed to connect to database: %v", err)
 		log.Warn("Starting server without database connection...")
